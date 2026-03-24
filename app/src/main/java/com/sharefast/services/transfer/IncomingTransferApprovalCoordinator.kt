@@ -15,6 +15,9 @@ data class IncomingTransferRequest(
     val deviceName: String,
     val files: List<FileDescriptorWire> = emptyList(),
     val message: String? = null,
+    val peerKey: String? = null,
+    val peerHost: String? = null,
+    val peerPort: Int? = null,
     val type: IncomingRequestType = IncomingRequestType.FILES,
 )
 
@@ -88,12 +91,21 @@ class IncomingTransferApprovalCoordinator @Inject constructor() {
         _request.value = null
     }
 
-    fun showTextToast(deviceName: String, message: String) {
+    fun showTextToast(
+        deviceName: String,
+        message: String,
+        peerKey: String,
+        peerHost: String,
+        peerPort: Int,
+    ) {
         if (_request.value != null) return
         _request.value = IncomingTransferRequest(
             id = idGen.getAndIncrement(),
             deviceName = deviceName,
             message = message,
+            peerKey = peerKey,
+            peerHost = peerHost,
+            peerPort = peerPort,
             type = IncomingRequestType.TEXT,
         )
     }

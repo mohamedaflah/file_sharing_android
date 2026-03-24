@@ -45,6 +45,7 @@ class DiscoveryRepositoryImpl @Inject constructor(
     private var udpSocket: DatagramSocket? = null
     private var listenJob: Job? = null
     private var broadcastJob: Job? = null
+    private var pruneJob: Job? = null
     private var advertisePort: Int = 0
 
     private var nsdManager: NsdManager? = null
@@ -71,8 +72,10 @@ class DiscoveryRepositoryImpl @Inject constructor(
     private suspend fun stopDiscoveryInternal() = withContext(Dispatchers.IO) {
         listenJob?.cancel()
         broadcastJob?.cancel()
+        pruneJob?.cancel()
         listenJob = null
         broadcastJob = null
+        pruneJob = null
         runCatching { udpSocket?.close() }
         udpSocket = null
         runCatching {
@@ -108,6 +111,9 @@ class DiscoveryRepositoryImpl @Inject constructor(
                     val parsed = decodeUdpPacket(buf, packet.length) ?: continue
                     if (parsed.type != "SF_ANN" || parsed.port <= 0) continue
                     val host = packet.address.hostAddress ?: continue
+                    val myIp = NetworkUtils.localIpv4Address(context)
+                    if (myIp != null && host == myIp) continue
+                    if (host == "127.0.0.1" || host == "::1") continue
                     if (parsed.id == myId) continue
                     upsert(
                         PeerDevice(
@@ -146,6 +152,14 @@ class DiscoveryRepositoryImpl @Inject constructor(
                     if (!isActive) break
                 }
                 delay(2_500)
+            }
+        }
+        pruneJob = scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                val changed = peerMap.entries.removeIf { now - it.value.lastSeenEpochMs > 5_000L }
+                if (changed) _peers.value = peerMap.values.sortedByDescending { it.lastSeenEpochMs }
+                delay(1_000)
             }
         }
     }

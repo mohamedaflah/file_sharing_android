@@ -87,7 +87,7 @@ fun QueueHudOverlay(
             exit = scaleOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 96.dp),
+                .padding(end = 20.dp, bottom = 164.dp),
         ) {
             BadgedBox(
                 badge = {

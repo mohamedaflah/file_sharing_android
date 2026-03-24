@@ -102,6 +102,7 @@ import com.sharefast.domain.model.PeerDevice
 import com.sharefast.domain.model.TransferDirection
 import com.sharefast.presentation.theme.GlassDark
 import com.sharefast.presentation.theme.GlassLight
+import com.sharefast.presentation.chat.chatRoute
 import com.sharefast.utils.QrUtils
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
@@ -156,8 +157,6 @@ fun HomeScreen(
     var renameOpen by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf(ui.deviceName) }
     var qrOpen by remember { mutableStateOf(false) }
-    var messagePeer by remember { mutableStateOf<PeerDevice?>(null) }
-    var messageDraft by remember { mutableStateOf("") }
     var transferSheetDismissed by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -233,34 +232,6 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { renameOpen = false }) { Text("Cancel") }
-            },
-        )
-    }
-
-    if (messagePeer != null) {
-        AlertDialog(
-            onDismissRequest = { messagePeer = null },
-            title = { Text("Send message to ${messagePeer?.displayName}") },
-            text = {
-                OutlinedTextField(
-                    value = messageDraft,
-                    onValueChange = { messageDraft = it.take(280) },
-                    placeholder = { Text("Type message...") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val peer = messagePeer ?: return@TextButton
-                        viewModel.sendTextTo(peer, messageDraft)
-                        messageDraft = ""
-                        messagePeer = null
-                    },
-                ) { Text("Send") }
-            },
-            dismissButton = {
-                TextButton(onClick = { messagePeer = null }) { Text("Cancel") }
             },
         )
     }
@@ -526,8 +497,7 @@ fun HomeScreen(
                                 peer = peer,
                                 onClick = { viewModel.onPeerTapped(peer) },
                                 onMessage = {
-                                    messagePeer = peer
-                                    messageDraft = ""
+                                    navController.navigate(chatRoute(peer))
                                 },
                             )
                         }

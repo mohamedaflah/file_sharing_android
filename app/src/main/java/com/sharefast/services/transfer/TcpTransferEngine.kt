@@ -8,6 +8,7 @@ import com.sharefast.core.network.parseWireMessage
 import com.sharefast.core.network.readJsonPayload
 import com.sharefast.core.network.toWireJson
 import com.sharefast.core.network.writeJsonPayload
+import com.sharefast.data.repository.ChatRepository
 import com.sharefast.di.ApplicationScope
 import com.sharefast.domain.model.PeerDevice
 import com.sharefast.domain.model.ShareableFile
@@ -51,6 +52,7 @@ class TcpTransferEngine @Inject constructor(
     private val incomingTransferFiles: IncomingTransferFiles,
     private val transferNotifications: TransferNotifications,
     private val approvalCoordinator: IncomingTransferApprovalCoordinator,
+    private val chatRepository: ChatRepository,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val paused = AtomicBoolean(false)
@@ -238,6 +240,36 @@ class TcpTransferEngine @Inject constructor(
         }
     }
 
+    suspend fun sendChatMessage(peer: PeerDevice, message: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = message.trim().take(1000)
+            require(body.isNotEmpty()) { "Empty message" }
+            val socket = Socket()
+            try {
+                socket.connect(InetSocketAddress(peer.hostAddress, peer.port), 10_000)
+                val dis = DataInputStream(socket.getInputStream())
+                val dos = DataOutputStream(socket.getOutputStream())
+                val myId = deviceRepository.localDeviceId()
+                val myName = deviceRepository.deviceDisplayName.first()
+                dos.writeJsonPayload(
+                    WireMessage(command = "HELLO", deviceId = myId, deviceName = myName).toWireJson(),
+                )
+                val helloAck = parseWireMessage(dis.readJsonPayload())
+                if (helloAck.command != "HELLO_ACK") error("Handshake failed")
+                dos.writeJsonPayload(WireMessage(command = "CHAT_MESSAGE", error = body).toWireJson())
+                val ack = parseWireMessage(dis.readJsonPayload())
+                if (ack.command != "CHAT_ACK") error(ack.error ?: "Message failed")
+                chatRepository.insertOutgoing(
+                    peerKey = peer.id,
+                    peerName = peer.displayName,
+                    body = body,
+                )
+            } finally {
+                runCatching { socket.close() }
+            }
+        }
+    }
+
     private suspend fun waitWhilePaused() {
         while (paused.get() && !transferCancelled.get()) {
             delay(120)
@@ -296,8 +328,31 @@ class TcpTransferEngine @Inject constructor(
                 approvalCoordinator.showTextToast(
                     deviceName = peerName,
                     message = manifest.error.orEmpty(),
+                    peerKey = hello.deviceId ?: "${socket.inetAddress.hostAddress}:${socket.port}",
+                    peerHost = socket.inetAddress.hostAddress ?: "",
+                    peerPort = ShareConstants.TCP_PORT,
                 )
                 dos.writeJsonPayload(WireMessage(command = "TEXT_ACCEPT").toWireJson())
+                return@withContext
+            }
+            if (manifest.command == "CHAT_MESSAGE") {
+                val peerName = hello.deviceName ?: "Peer"
+                val peerKey = hello.deviceId ?: "${socket.inetAddress.hostAddress}:${socket.port}"
+                val peerHost = socket.inetAddress.hostAddress ?: ""
+                val peerPort = ShareConstants.TCP_PORT
+                chatRepository.insertIncoming(
+                    peerKey = peerKey,
+                    peerName = peerName,
+                    body = manifest.error.orEmpty(),
+                )
+                approvalCoordinator.showTextToast(
+                    deviceName = peerName,
+                    message = manifest.error.orEmpty(),
+                    peerKey = peerKey,
+                    peerHost = peerHost,
+                    peerPort = peerPort,
+                )
+                dos.writeJsonPayload(WireMessage(command = "CHAT_ACK").toWireJson())
                 return@withContext
             }
             if (manifest.command != "MANIFEST" || manifest.files.isNullOrEmpty()) {

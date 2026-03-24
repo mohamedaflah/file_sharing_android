@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -51,6 +50,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -83,7 +84,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sharefast.presentation.TransferNavExtras
+import com.sharefast.presentation.chat.chatRoute
 import com.sharefast.presentation.home.HomeScreen
+import com.sharefast.presentation.chat.ChatScreen
 import com.sharefast.presentation.permissions.LocalMediaReadGranted
 import com.sharefast.presentation.permissions.LocalPermissionsFlowCompleted
 import com.sharefast.presentation.queue.QueueHudOverlay
@@ -174,43 +177,39 @@ fun ShareFastRoot(
     ) {
         Scaffold(
             modifier = modifier,
+            floatingActionButton = {
+                if (showBottom) {
+                    FloatingActionButton(
+                        onClick = { navController.navigate("qr_hub") { launchSingleTop = true } },
+                        modifier = Modifier.padding(bottom = 84.dp),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.QrCode2,
+                            contentDescription = "QR",
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                }
+            },
             bottomBar = {
                 AnimatedVisibility(
                     visible = showBottom,
                     enter = fadeIn(tween(200)),
                     exit = fadeOut(tween(180)),
                 ) {
-                    Box(Modifier.fillMaxWidth()) {
-                        GlassBottomTabs(
-                            current = current,
-                            onNavigate = { route ->
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                        )
-                        Card(
-                            shape = RoundedCornerShape(100.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier
-                                .size(58.dp)
-                                .align(Alignment.TopCenter)
-                                .offset(y = (-14).dp)
-                                .clickable {
-                                    navController.navigate("qr_hub") { launchSingleTop = true }
-                                },
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Outlined.QrCode2,
-                                    contentDescription = "QR",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                )
+                    GlassBottomTabs(
+                        current = current,
+                        onNavigate = { route ->
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                        }
-                    }
+                        },
+                    )
                 }
             },
         ) { padding ->
@@ -264,6 +263,9 @@ fun ShareFastRoot(
                     composable("qr_hub", enterTransition = { enter }, exitTransition = { exit }) {
                         QrHubScreen(onClose = { navController.popBackStack() })
                     }
+                    composable("chat/{peerKey}/{peerName}/{host}/{port}") {
+                        ChatScreen(onBack = { navController.popBackStack() })
+                    }
                 }
                 QueueHudOverlay(navController = navController)
                 incomingRequest?.let { req ->
@@ -274,6 +276,22 @@ fun ShareFastRoot(
                                 .align(Alignment.BottomCenter)
                                 .padding(start = 14.dp, end = 14.dp, bottom = 92.dp),
                             onDismiss = { incomingRequestVm.dismiss() },
+                            onClick = {
+                                val key = req.peerKey
+                                val host = req.peerHost
+                                val port = req.peerPort
+                                if (!key.isNullOrBlank() && !host.isNullOrBlank() && port != null) {
+                                    navController.navigate(
+                                        chatRoute(
+                                            peerKey = key,
+                                            peerName = req.deviceName,
+                                            host = host,
+                                            port = port,
+                                        ),
+                                    )
+                                }
+                                incomingRequestVm.dismiss()
+                            },
                         )
                     } else {
                         IncomingTransferRequestCard(
@@ -394,7 +412,7 @@ private fun GlassBottomTabs(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 14.dp)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
@@ -411,16 +429,8 @@ private fun GlassBottomTabs(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            val leftTabs = tabs.take(2)
-            val rightTabs = tabs.drop(2)
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
-                leftTabs.forEach { tab ->
-                    BottomTabItem(tab, current == tab.route) { onNavigate(tab.route) }
-                }
-            }
-            Spacer(Modifier.width(58.dp))
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
-                rightTabs.forEach { tab ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                tabs.forEach { tab ->
                     BottomTabItem(tab, current == tab.route) { onNavigate(tab.route) }
                 }
             }
@@ -463,6 +473,7 @@ private fun IncomingMessageToast(
     request: com.sharefast.services.transfer.IncomingTransferRequest,
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
+    onClick: () -> Unit,
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -475,7 +486,7 @@ private fun IncomingMessageToast(
     SwipeToDismissBox(
         state = dismissState,
         backgroundContent = {},
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Card(
             shape = RoundedCornerShape(18.dp),
