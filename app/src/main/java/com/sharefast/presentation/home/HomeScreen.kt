@@ -1,5 +1,10 @@
 package com.sharefast.presentation.home
 
+import androidx.activity.ComponentActivity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -37,6 +42,8 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.WifiTethering
@@ -46,6 +53,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +79,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -81,8 +90,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.sharefast.presentation.MainAppearanceViewModel
 import com.sharefast.presentation.TransferNavExtras
+import com.sharefast.presentation.ui.pressScale
 import com.sharefast.presentation.permissions.LocalPermissionsFlowCompleted
 import com.sharefast.core.ShareConstants
 import com.sharefast.data.repository.SavedPeer
@@ -110,6 +122,11 @@ fun HomeScreen(
     val recent by viewModel.recentTransfers.collectAsState()
     val lastPeer by viewModel.lastPeer.collectAsState()
     val progress by viewModel.transferProgress.collectAsState()
+    val activity = LocalContext.current as ComponentActivity
+    val appearanceVm = hiltViewModel<MainAppearanceViewModel>(activity)
+    val greetingStored by appearanceVm.greetingName.collectAsStateWithLifecycle()
+    var greetingEditOpen by remember { mutableStateOf(false) }
+    var greetingDraft by remember { mutableStateOf("") }
     var homeTab by rememberSaveable { mutableIntStateOf(0) }
     val corePermissionsReady = LocalPermissionsFlowCompleted.current
     val listState = rememberLazyListState()
@@ -154,6 +171,41 @@ fun HomeScreen(
             },
             title = { Text("Notice") },
             text = { Text(ui.error ?: "") },
+        )
+    }
+
+    if (greetingEditOpen) {
+        AlertDialog(
+            onDismissRequest = { greetingEditOpen = false },
+            title = { Text("Greeting name") },
+            text = {
+                Column {
+                    Text(
+                        "Shown on Home (offline, stored on this device only).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = greetingDraft,
+                        onValueChange = { greetingDraft = it },
+                        singleLine = true,
+                        placeholder = { Text("e.g. Alex") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        appearanceVm.setGreeting(greetingDraft)
+                        greetingEditOpen = false
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { greetingEditOpen = false }) { Text("Cancel") }
+            },
         )
     }
 
@@ -228,6 +280,7 @@ fun HomeScreen(
         } else {
             "Calculating…"
         }
+        val isComplete = p.totalBytes > 0 && p.bytesTransferred >= p.totalBytes - 2
         ModalBottomSheet(
             onDismissRequest = { transferSheetDismissed = true },
             sheetState = sheetState,
@@ -245,7 +298,22 @@ fun HomeScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { fracAnimated },
+                        modifier = Modifier.size(88.dp),
+                        strokeWidth = 6.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                    Text(
+                        "${(fracAnimated * 100).toInt()}%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
                 LinearProgressIndicator(progress = { fracAnimated }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
                 val mbps = p.speedBytesPerSecond / (1024.0 * 1024.0)
@@ -253,6 +321,30 @@ fun HomeScreen(
                     "${"%.2f".format(mbps)} MB/s · $etaText",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                AnimatedVisibility(
+                    visible = isComplete,
+                    enter = fadeIn() + scaleIn(initialScale = 0.85f),
+                    exit = fadeOut(),
+                ) {
+                    Row(
+                        Modifier.padding(top = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Text(
+                            "All files transferred",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
                 if (p.isPaused) {
                     Text("Paused", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelLarge)
                 }
@@ -282,6 +374,9 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { appearanceVm.cycleAccent() }) {
+                        Icon(Icons.Outlined.ColorLens, contentDescription = "Accent color")
+                    }
                     IconButton(onClick = onThemeCycle) {
                         Icon(Icons.Outlined.Palette, contentDescription = "Theme")
                     }
@@ -318,7 +413,16 @@ fun HomeScreen(
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                item { HomeGreetingLine() }
+                item {
+                    HomeGreetingLine(
+                        greetingName = greetingStored,
+                        deviceName = ui.deviceName,
+                        onEditGreeting = {
+                            greetingDraft = greetingStored
+                            greetingEditOpen = true
+                        },
+                    )
+                }
                 item {
                     TabRow(selectedTabIndex = homeTab) {
                         Tab(
@@ -461,7 +565,11 @@ private fun HomeAmbientGradient(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HomeGreetingLine() {
+private fun HomeGreetingLine(
+    greetingName: String,
+    deviceName: String,
+    onEditGreeting: () -> Unit,
+) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greet = when (hour) {
         in 5..11 -> "Good morning"
@@ -469,19 +577,27 @@ private fun HomeGreetingLine() {
         in 17..21 -> "Good evening"
         else -> "Hello"
     }
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            "$greet — ready to share",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            "Add files from the bottom tabs, then pick a device or scan QR.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+    val who = greetingName.trim().ifBlank {
+        deviceName.split(" ").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: "there"
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "$greet — ready to share, $who",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                "Add files from the bottom tabs, then pick a device or scan QR. 🚀",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        IconButton(onClick = onEditGreeting) {
+            Icon(Icons.Outlined.Edit, contentDescription = "Edit greeting name")
+        }
     }
 }
 
@@ -708,7 +824,7 @@ private fun PeerRow(peer: PeerDevice, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .pressScale(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
     ) {
         Row(
@@ -752,7 +868,9 @@ private fun RecentRow(entry: com.sharefast.domain.model.TransferHistoryEntry, on
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = canOpen, onClick = onOpen),
+            .then(
+                if (canOpen) Modifier.pressScale(onClick = onOpen) else Modifier,
+            ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {

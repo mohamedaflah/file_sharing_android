@@ -25,6 +25,8 @@ class AppsViewModel @Inject constructor(
 
     private val _apps = MutableStateFlow<List<InstalledApp>>(emptyList())
     val apps: StateFlow<List<InstalledApp>> = _apps.asStateFlow()
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _selected = MutableStateFlow<Set<String>>(emptySet())
     val selected: StateFlow<Set<String>> = _selected.asStateFlow()
@@ -35,7 +37,9 @@ class AppsViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
+            _isLoading.value = true
             _apps.value = runCatching { appsRepository.loadInstalledApps() }.getOrElse { emptyList() }
+            _isLoading.value = false
         }
     }
 

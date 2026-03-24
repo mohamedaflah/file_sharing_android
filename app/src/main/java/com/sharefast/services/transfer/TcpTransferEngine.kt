@@ -16,6 +16,7 @@ import com.sharefast.domain.model.TransferHistoryEntry
 import com.sharefast.domain.model.TransferProgress
 import com.sharefast.domain.repository.DeviceRepository
 import com.sharefast.domain.repository.TransferHistoryRepository
+import com.sharefast.utils.Feedback
 import com.sharefast.utils.IncomingTransferFiles
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +50,7 @@ class TcpTransferEngine @Inject constructor(
     private val transferHistoryRepository: TransferHistoryRepository,
     private val incomingTransferFiles: IncomingTransferFiles,
     private val transferNotifications: TransferNotifications,
+    private val approvalCoordinator: IncomingTransferApprovalCoordinator,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val paused = AtomicBoolean(false)
@@ -180,6 +182,10 @@ class TcpTransferEngine @Inject constructor(
                     runCatching { socket.close() }
                     _progress.value = null
                     transferNotifications.notifySendComplete(peerDisplayName, files.size)
+                    withContext(Dispatchers.Main) {
+                        Feedback.vibrateSuccess(context)
+                        Feedback.playSuccessTone()
+                    }
                     return@withContext
                 } catch (_: Exception) {
                     if (attempt == 2 || transferCancelled.get()) {
@@ -248,9 +254,18 @@ class TcpTransferEngine @Inject constructor(
                 dos.writeJsonPayload(WireMessage(command = "MANIFEST_REJECT", error = "Empty").toWireJson())
                 return@withContext
             }
-            dos.writeJsonPayload(WireMessage(command = "MANIFEST_OK").toWireJson())
-
             val peerName = hello.deviceName ?: "Peer"
+            val approved = approvalCoordinator.awaitDecision(
+                deviceName = peerName,
+                files = manifest.files,
+            )
+            if (!approved) {
+                dos.writeJsonPayload(
+                    WireMessage(command = "MANIFEST_REJECT", error = "Receiver declined").toWireJson(),
+                )
+                return@withContext
+            }
+            dos.writeJsonPayload(WireMessage(command = "MANIFEST_OK").toWireJson())
             val total = manifest.files.sumOf { it.size }
             var done = 0L
             val speedEwma = SpeedMeter()
@@ -317,6 +332,10 @@ class TcpTransferEngine @Inject constructor(
             _progress.value = null
             if (completedFiles == batchSize) {
                 transferNotifications.notifyReceiveComplete(peerName, batchSize, lastPublishedUri, lastPublishedName)
+                withContext(Dispatchers.Main) {
+                    Feedback.vibrateSuccess(context)
+                    Feedback.playSuccessTone()
+                }
             }
         } catch (_: Exception) {
             _progress.value = null

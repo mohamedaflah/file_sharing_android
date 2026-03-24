@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -39,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun AppsScreen(viewModel: AppsViewModel = hiltViewModel()) {
     val apps by viewModel.apps.collectAsState()
     val selected by viewModel.selected.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -83,7 +85,11 @@ fun AppsScreen(viewModel: AppsViewModel = hiltViewModel()) {
                     }
                 }
             }
-            if (apps.isEmpty()) {
+            if (isLoading) {
+                items(6) {
+                    SkeletonAppRow()
+                }
+            } else if (apps.isEmpty()) {
                 item {
                     Surface(
                         modifier = Modifier
@@ -159,6 +165,60 @@ fun AppsScreen(viewModel: AppsViewModel = hiltViewModel()) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkeletonAppRow() {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+                        RoundedCornerShape(14.dp),
+                    ),
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.55f)
+                        .size(14.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+                            RoundedCornerShape(8.dp),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .size(11.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                            RoundedCornerShape(8.dp),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.32f)
+                        .size(10.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            RoundedCornerShape(8.dp),
+                        ),
+                )
             }
         }
     }

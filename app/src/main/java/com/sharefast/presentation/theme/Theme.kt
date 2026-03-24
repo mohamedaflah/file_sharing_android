@@ -101,13 +101,15 @@ private val AmoledColors = darkColorScheme(
 fun ShareFastTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     amoled: Boolean = false,
+    accentPresetIndex: Int = 0,
     content: @Composable () -> Unit,
 ) {
-    val colors = when {
+    val base = when {
         amoled -> AmoledColors
         darkTheme -> DarkColors
         else -> LightColors
     }
+    val colors = base.withAccent(accentPresetIndex, useDarkPalette = darkTheme || amoled)
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
