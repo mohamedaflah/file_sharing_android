@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -181,7 +182,9 @@ fun ShareFastRoot(
                 if (showBottom) {
                     FloatingActionButton(
                         onClick = { navController.navigate("qr_hub") { launchSingleTop = true } },
-                        modifier = Modifier.padding(bottom = 84.dp),
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(bottom = 108.dp, end = 4.dp),
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
@@ -412,7 +415,8 @@ private fun GlassBottomTabs(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 14.dp)
+            .navigationBarsPadding()
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 22.dp)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
