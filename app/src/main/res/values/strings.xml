@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ShareFast</string>
+    <string name="transfer_channel">Transfers</string>
+    <string name="transfer_running">Sending or receiving files</string>
+    <string name="transfer_complete_channel">Transfer finished</string>
+    <string name="transfer_complete_channel_desc">Shown when a batch send or receive completes</string>
+    <string name="notif_receive_done_title">Received files</string>
+    <string name="notif_send_done_title">Send complete</string>
+    <plurals name="notif_receive_done_body">
+        <item quantity="one">%1$d file from %2$s — tap to open in ShareFast</item>
+        <item quantity="other">%1$d files from %2$s — tap to open in ShareFast</item>
+    </plurals>
+    <plurals name="notif_send_done_body">
+        <item quantity="one">%1$d file sent to %2$s</item>
+        <item quantity="other">%1$d files sent to %2$s</item>
+    </plurals>
+</resources>

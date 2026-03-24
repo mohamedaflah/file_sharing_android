@@ -1,0 +1,43 @@
+# Gradle
+.gradle/
+build/
+
+# Local / machine-specific (SDK path, secrets)
+local.properties
+*.jks
+*.keystore
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+
+# Kotlin
+.kotlin/
+
+# NDK / CMake
+.externalNativeBuild/
+.cxx/
+*.so
+
+# Captures / profiling
+captures/
+*.hprof
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Packaged artifacts (when not under build/)
+*.apk
+*.ap_
+*.aab
+*.aar
+
+# Fastlane (if added later)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
