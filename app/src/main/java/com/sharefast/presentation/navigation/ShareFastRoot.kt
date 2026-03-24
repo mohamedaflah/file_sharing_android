@@ -26,12 +26,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Image
@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,12 +51,12 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -87,6 +88,7 @@ import com.sharefast.presentation.permissions.LocalMediaReadGranted
 import com.sharefast.presentation.permissions.LocalPermissionsFlowCompleted
 import com.sharefast.presentation.queue.QueueHudOverlay
 import com.sharefast.presentation.qr.QrScanScreen
+import com.sharefast.presentation.qr.QrHubScreen
 import com.sharefast.presentation.sensor.ShakeToSendEffect
 import com.sharefast.presentation.tabs.AppsScreen
 import com.sharefast.presentation.tabs.DocumentsScreen
@@ -94,6 +96,7 @@ import com.sharefast.presentation.tabs.MediaKind
 import com.sharefast.presentation.tabs.MediaPickScreen
 import com.sharefast.utils.OpenUriHelper
 import com.sharefast.utils.AppPermissions
+import com.sharefast.utils.Feedback
 import com.sharefast.utils.hasMediaReadPermission
 import kotlinx.coroutines.delay
 
@@ -154,6 +157,16 @@ fun ShareFastRoot(
             transferToastVm.dismiss()
         }
     }
+    LaunchedEffect(incomingRequest?.id) {
+        if (incomingRequest != null) {
+            Feedback.vibrateSuccess(context)
+            Feedback.playQrScannedChime()
+            if (incomingRequest?.type == com.sharefast.services.transfer.IncomingRequestType.TEXT) {
+                delay(4_500)
+                incomingRequestVm.dismiss()
+            }
+        }
+    }
 
     CompositionLocalProvider(
         LocalPermissionsFlowCompleted provides corePermissionPromptIssued,
@@ -167,16 +180,37 @@ fun ShareFastRoot(
                     enter = fadeIn(tween(200)),
                     exit = fadeOut(tween(180)),
                 ) {
-                    GlassBottomTabs(
-                        current = current,
-                        onNavigate = { route ->
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                    Box(Modifier.fillMaxWidth()) {
+                        GlassBottomTabs(
+                            current = current,
+                            onNavigate = { route ->
+                                navController.navigate(route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                        )
+                        Card(
+                            shape = RoundedCornerShape(100.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier
+                                .size(58.dp)
+                                .align(Alignment.TopCenter)
+                                .offset(y = (-14).dp)
+                                .clickable {
+                                    navController.navigate("qr_hub") { launchSingleTop = true }
+                                },
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.QrCode2,
+                                    contentDescription = "QR",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                )
                             }
-                        },
-                    )
+                        }
+                    }
                 }
             },
         ) { padding ->
@@ -227,17 +261,30 @@ fun ShareFastRoot(
                     ) {
                         QrScanScreen(onClose = { navController.popBackStack() })
                     }
+                    composable("qr_hub", enterTransition = { enter }, exitTransition = { exit }) {
+                        QrHubScreen(onClose = { navController.popBackStack() })
+                    }
                 }
                 QueueHudOverlay(navController = navController)
                 incomingRequest?.let { req ->
-                    IncomingTransferRequestCard(
-                        request = req,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(start = 14.dp, end = 14.dp, bottom = 92.dp),
-                        onAccept = { incomingRequestVm.accept(req.id) },
-                        onDecline = { incomingRequestVm.decline(req.id) },
-                    )
+                    if (req.type == com.sharefast.services.transfer.IncomingRequestType.TEXT) {
+                        IncomingMessageToast(
+                            request = req,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(start = 14.dp, end = 14.dp, bottom = 92.dp),
+                            onDismiss = { incomingRequestVm.dismiss() },
+                        )
+                    } else {
+                        IncomingTransferRequestCard(
+                            request = req,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(start = 14.dp, end = 14.dp, bottom = 92.dp),
+                            onAccept = { incomingRequestVm.accept(req.id) },
+                            onDecline = { incomingRequestVm.decline(req.id) },
+                        )
+                    }
                 }
                 transferToast?.let { toast ->
                     TransferSuccessToast(
@@ -361,38 +408,102 @@ private fun GlassBottomTabs(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            tabs.forEach { tab ->
-                val selected = current == tab.route
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.86f)
-                            else Color.Transparent,
-                        )
-                        .clickable { onNavigate(tab.route) }
-                        .padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(
-                        imageVector = if (selected) tab.iconSelected else tab.iconUnselected,
-                        contentDescription = tab.label,
-                        modifier = Modifier.size(if (selected) 24.dp else 22.dp),
-                        tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        tab.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            val leftTabs = tabs.take(2)
+            val rightTabs = tabs.drop(2)
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
+                leftTabs.forEach { tab ->
+                    BottomTabItem(tab, current == tab.route) { onNavigate(tab.route) }
                 }
+            }
+            Spacer(Modifier.width(58.dp))
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
+                rightTabs.forEach { tab ->
+                    BottomTabItem(tab, current == tab.route) { onNavigate(tab.route) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BottomTabItem(tab: TabSpec, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.86f)
+                else Color.Transparent,
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = if (selected) tab.iconSelected else tab.iconUnselected,
+            contentDescription = tab.label,
+            modifier = Modifier.size(if (selected) 24.dp else 22.dp),
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            tab.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun IncomingMessageToast(
+    request: com.sharefast.services.transfer.IncomingTransferRequest,
+    modifier: Modifier = Modifier,
+    onDismiss: () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.StartToEnd || value == SwipeToDismissBoxValue.EndToStart) {
+                onDismiss()
+                true
+            } else false
+        },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {},
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.95f),
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        ) {
+            Column(Modifier.padding(14.dp)) {
+                Text(
+                    "Message from ${request.deviceName}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    request.message.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.padding(top = 4.dp),
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "Swipe to close",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.75f),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }
@@ -415,16 +526,34 @@ private fun IncomingTransferRequestCard(
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "Incoming transfer request",
+                if (request.type == com.sharefast.services.transfer.IncomingRequestType.TEXT) {
+                    "Incoming message request"
+                } else {
+                    "Incoming transfer request"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "${request.deviceName} wants to send ${request.files.size} files",
+                if (request.type == com.sharefast.services.transfer.IncomingRequestType.TEXT) {
+                    "${request.deviceName} wants to send a message"
+                } else {
+                    "${request.deviceName} wants to send ${request.files.size} files"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp),
             )
+            if (request.type == com.sharefast.services.transfer.IncomingRequestType.TEXT) {
+                Text(
+                    request.message.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -439,7 +568,9 @@ private fun IncomingTransferRequestCard(
                     onClick = onDecline,
                     modifier = Modifier.weight(1f),
                 ) { Text("Decline", color = Color(0xFFE53935)) }
-                TextButton(onClick = { detailsOpen = true }) { Text("Details") }
+                if (request.type == com.sharefast.services.transfer.IncomingRequestType.FILES) {
+                    TextButton(onClick = { detailsOpen = true }) { Text("Details") }
+                }
             }
         }
     }

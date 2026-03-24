@@ -14,5 +14,7 @@ class IncomingTransferRequestViewModel @Inject constructor(
     fun accept(id: Long) = coordinator.accept(id)
 
     fun decline(id: Long) = coordinator.decline(id)
+
+    fun dismiss() = coordinator.clear()
 }
 

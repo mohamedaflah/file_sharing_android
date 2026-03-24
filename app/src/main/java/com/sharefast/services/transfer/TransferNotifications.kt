@@ -82,7 +82,7 @@ class TransferNotifications @Inject constructor(
 
     private fun show(id: Int, title: String, text: String, contentIntent: PendingIntent) {
         val n = NotificationCompat.Builder(context, CHANNEL_COMPLETE)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(com.sharefast.R.drawable.ic_stat_sharefast)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

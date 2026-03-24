@@ -64,6 +64,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @Composable
 fun QrScanScreen(
     onClose: () -> Unit,
+    showTopBar: Boolean = true,
     viewModel: QrScanViewModel = hiltViewModel(),
 ) {
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
@@ -121,14 +122,16 @@ fun QrScanScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Scan QR") },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close")
-                    }
-                },
-            )
+            if (showTopBar) {
+                TopAppBar(
+                    title = { Text("Scan QR") },
+                    navigationIcon = {
+                        IconButton(onClick = onClose) {
+                            Icon(Icons.Outlined.Close, contentDescription = "Close")
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {

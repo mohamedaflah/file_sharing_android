@@ -187,6 +187,8 @@ class DiscoveryRepositoryImpl @Inject constructor(
                     override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
                     override fun onServiceResolved(resolved: NsdServiceInfo) {
                         val host = resolved.host?.hostAddress ?: return
+                        val myIp = NetworkUtils.localIpv4Address(context)
+                        if (myIp != null && host == myIp) return
                         val id = "nsd-${resolved.serviceName}-${host}"
                         upsert(
                             PeerDevice(

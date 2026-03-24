@@ -147,7 +147,13 @@ class TcpTransferEngine @Inject constructor(
                     dos.writeJsonPayload(manifest.toWireJson())
                     val manAckRaw = dis.readJsonPayload()
                     val manAck = parseWireMessage(manAckRaw)
-                    if (manAck.command != "MANIFEST_OK") error("Manifest rejected")
+                    when (manAck.command) {
+                        "MANIFEST_OK" -> Unit
+                        "MANIFEST_REJECT" -> throw ReceiverDeclinedException(
+                            manAck.error ?: "Request declined by receiver",
+                        )
+                        else -> error("Manifest rejected")
+                    }
 
                     for ((index, file) in files.withIndex()) {
                         if (transferCancelled.get()) return@withContext
@@ -187,7 +193,15 @@ class TcpTransferEngine @Inject constructor(
                         Feedback.playSuccessTone()
                     }
                     return@withContext
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    if (transferCancelled.get()) {
+                        _progress.value = null
+                        throw IllegalStateException("Transfer canceled")
+                    }
+                    if (e is ReceiverDeclinedException) {
+                        _progress.value = null
+                        throw e
+                    }
                     if (attempt == 2 || transferCancelled.get()) {
                         _progress.value = null
                         throw IllegalStateException("Could not connect after retries")
@@ -196,6 +210,33 @@ class TcpTransferEngine @Inject constructor(
                 }
             }
         }
+
+    suspend fun sendTextRequest(peer: PeerDevice, message: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val socket = Socket()
+            try {
+                socket.connect(InetSocketAddress(peer.hostAddress, peer.port), 10_000)
+                val dis = DataInputStream(socket.getInputStream())
+                val dos = DataOutputStream(socket.getOutputStream())
+                val myId = deviceRepository.localDeviceId()
+                val myName = deviceRepository.deviceDisplayName.first()
+                dos.writeJsonPayload(
+                    WireMessage(command = "HELLO", deviceId = myId, deviceName = myName).toWireJson(),
+                )
+                val helloAck = parseWireMessage(dis.readJsonPayload())
+                if (helloAck.command != "HELLO_ACK") error("Handshake failed")
+                dos.writeJsonPayload(WireMessage(command = "TEXT_REQUEST", error = message.take(280)).toWireJson())
+                val ack = parseWireMessage(dis.readJsonPayload())
+                when (ack.command) {
+                    "TEXT_ACCEPT" -> Unit
+                    "TEXT_DECLINE" -> throw ReceiverDeclinedException(ack.error ?: "Request declined by receiver")
+                    else -> error("Invalid response")
+                }
+            } finally {
+                runCatching { socket.close() }
+            }
+        }
+    }
 
     private suspend fun waitWhilePaused() {
         while (paused.get() && !transferCancelled.get()) {
@@ -250,6 +291,15 @@ class TcpTransferEngine @Inject constructor(
 
             val manRaw = dis.readJsonPayload()
             val manifest = parseWireMessage(manRaw)
+            if (manifest.command == "TEXT_REQUEST") {
+                val peerName = hello.deviceName ?: "Peer"
+                approvalCoordinator.showTextToast(
+                    deviceName = peerName,
+                    message = manifest.error.orEmpty(),
+                )
+                dos.writeJsonPayload(WireMessage(command = "TEXT_ACCEPT").toWireJson())
+                return@withContext
+            }
             if (manifest.command != "MANIFEST" || manifest.files.isNullOrEmpty()) {
                 dos.writeJsonPayload(WireMessage(command = "MANIFEST_REJECT", error = "Empty").toWireJson())
                 return@withContext
@@ -366,6 +416,8 @@ class TcpTransferEngine @Inject constructor(
         }
     }
 }
+
+private class ReceiverDeclinedException(message: String) : IllegalStateException(message)
 
 private class SpeedMeter {
     private var last = System.nanoTime()

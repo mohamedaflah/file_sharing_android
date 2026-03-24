@@ -13,8 +13,12 @@ import javax.inject.Singleton
 data class IncomingTransferRequest(
     val id: Long,
     val deviceName: String,
-    val files: List<FileDescriptorWire>,
+    val files: List<FileDescriptorWire> = emptyList(),
+    val message: String? = null,
+    val type: IncomingRequestType = IncomingRequestType.FILES,
 )
+
+enum class IncomingRequestType { FILES, TEXT }
 
 @Singleton
 class IncomingTransferApprovalCoordinator @Inject constructor() {
@@ -28,16 +32,42 @@ class IncomingTransferApprovalCoordinator @Inject constructor() {
         files: List<FileDescriptorWire>,
         timeoutMs: Long = 45_000L,
     ): Boolean {
+        return awaitDecision(
+            request = IncomingTransferRequest(
+                id = idGen.getAndIncrement(),
+                deviceName = deviceName,
+                files = files,
+                type = IncomingRequestType.FILES,
+            ),
+            timeoutMs = timeoutMs,
+        )
+    }
+
+    suspend fun awaitTextDecision(
+        deviceName: String,
+        message: String,
+        timeoutMs: Long = 45_000L,
+    ): Boolean {
+        return awaitDecision(
+            request = IncomingTransferRequest(
+                id = idGen.getAndIncrement(),
+                deviceName = deviceName,
+                message = message,
+                type = IncomingRequestType.TEXT,
+            ),
+            timeoutMs = timeoutMs,
+        )
+    }
+
+    private suspend fun awaitDecision(
+        request: IncomingTransferRequest,
+        timeoutMs: Long,
+    ): Boolean {
         // If another request is in progress, reject this new one.
         if (_request.value != null) return false
-        val id = idGen.getAndIncrement()
         val deferred = CompletableDeferred<Boolean>()
         pendingDecision = deferred
-        _request.value = IncomingTransferRequest(
-            id = id,
-            deviceName = deviceName,
-            files = files,
-        )
+        _request.value = request
         val approved = withTimeoutOrNull(timeoutMs) { deferred.await() } ?: false
         clear()
         return approved
@@ -56,6 +86,16 @@ class IncomingTransferApprovalCoordinator @Inject constructor() {
     fun clear() {
         pendingDecision = null
         _request.value = null
+    }
+
+    fun showTextToast(deviceName: String, message: String) {
+        if (_request.value != null) return
+        _request.value = IncomingTransferRequest(
+            id = idGen.getAndIncrement(),
+            deviceName = deviceName,
+            message = message,
+            type = IncomingRequestType.TEXT,
+        )
     }
 }
 

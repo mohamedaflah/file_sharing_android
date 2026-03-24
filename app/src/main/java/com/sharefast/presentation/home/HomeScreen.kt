@@ -39,12 +39,12 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.WifiTethering
 import androidx.compose.material3.AlertDialog
@@ -156,6 +156,8 @@ fun HomeScreen(
     var renameOpen by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf(ui.deviceName) }
     var qrOpen by remember { mutableStateOf(false) }
+    var messagePeer by remember { mutableStateOf<PeerDevice?>(null) }
+    var messageDraft by remember { mutableStateOf("") }
     var transferSheetDismissed by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -231,6 +233,34 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { renameOpen = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (messagePeer != null) {
+        AlertDialog(
+            onDismissRequest = { messagePeer = null },
+            title = { Text("Send message to ${messagePeer?.displayName}") },
+            text = {
+                OutlinedTextField(
+                    value = messageDraft,
+                    onValueChange = { messageDraft = it.take(280) },
+                    placeholder = { Text("Type message...") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val peer = messagePeer ?: return@TextButton
+                        viewModel.sendTextTo(peer, messageDraft)
+                        messageDraft = ""
+                        messagePeer = null
+                    },
+                ) { Text("Send") }
+            },
+            dismissButton = {
+                TextButton(onClick = { messagePeer = null }) { Text("Cancel") }
             },
         )
     }
@@ -383,11 +413,8 @@ fun HomeScreen(
                     IconButton(onClick = { onAmoledChange(!amoledBlack) }) {
                         Icon(
                             if (amoledBlack) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                            contentDescription = "AMOLED",
+                            contentDescription = "Background theme",
                         )
-                    }
-                    IconButton(onClick = { navController.navigate("qr_scan") }) {
-                        Icon(Icons.Outlined.QrCode2, contentDescription = "Scan QR")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -495,7 +522,14 @@ fun HomeScreen(
                         }
                     } else {
                         items(ui.peers, key = { it.id }) { peer ->
-                            PeerRow(peer = peer, onClick = { viewModel.onPeerTapped(peer) })
+                            PeerRow(
+                                peer = peer,
+                                onClick = { viewModel.onPeerTapped(peer) },
+                                onMessage = {
+                                    messagePeer = peer
+                                    messageDraft = ""
+                                },
+                            )
                         }
                     }
                     if (sentRecent.isNotEmpty()) {
@@ -820,7 +854,7 @@ private fun PulseActionButton(
 }
 
 @Composable
-private fun PeerRow(peer: PeerDevice, onClick: () -> Unit) {
+private fun PeerRow(peer: PeerDevice, onClick: () -> Unit, onMessage: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -837,6 +871,9 @@ private fun PeerRow(peer: PeerDevice, onClick: () -> Unit) {
                 Text(peer.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text("${peer.hostAddress}:${peer.port}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            IconButton(onClick = onMessage) {
+                Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = "Message device")
+            }
             Icon(Icons.Outlined.ChevronRight, contentDescription = null)
         }
     }
@@ -849,7 +886,7 @@ private fun SectionHeader(title: String, subtitle: String? = null) {
             title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.primary,
         )
         if (subtitle != null) {
             Text(

@@ -171,6 +171,20 @@ class HomeViewModel @Inject constructor(
         sendTo(peer)
     }
 
+    fun sendTextTo(peer: PeerDevice, message: String) {
+        val text = message.trim()
+        if (text.isEmpty()) {
+            _error.value = "Message can't be empty."
+            return
+        }
+        viewModelScope.launch {
+            val result = tcpTransferEngine.sendTextRequest(peer, text)
+            result.onFailure {
+                _error.value = it.message ?: "Message request failed"
+            }
+        }
+    }
+
     fun reconnectLastPeer() {
         val s = lastPeer.value ?: return
         val peer = PeerDevice(

@@ -58,7 +58,7 @@ class TransferForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(com.sharefast.R.string.app_name))
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setSmallIcon(com.sharefast.R.drawable.ic_stat_sharefast)
             .setContentIntent(launch)
             .setOngoing(true)
             .build()
