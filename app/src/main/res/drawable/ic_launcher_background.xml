@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    bg_icon_box.xml
+    Rounded gradient used for all top-bar icon boxes across every screen.
+    Matches the Box(38dp, 12dp corner, primary→tertiary) pattern in HomeScreen.kt.
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
+        android:type="linear"
         android:angle="135"
-        android:endColor="#1E1B4B"
         android:startColor="#4F46E5"
-        android:type="linear" />
+        android:endColor="#06B6D4" />
+    <corners android:radius="12dp" />
 </shape>

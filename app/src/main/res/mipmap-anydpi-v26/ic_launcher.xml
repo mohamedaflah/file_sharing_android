@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    ic_launcher.xml
+    ─────────────────────────────────────────────────────────────────────
+    Adaptive icon manifest for ShareFast.
+    Place in: res/mipmap-anydpi-v26/ic_launcher.xml
+
+    Layer stack:
+      background  →  ic_launcher_background   (indigo→cyan brand gradient)
+      foreground  →  ic_launcher_foreground   (arc loop + arrow artwork)
+      monochrome  →  ic_launcher_monochrome   (Android 13+ themed icons)
+
+    Also copy to:
+      res/mipmap-anydpi-v26/ic_launcher_round.xml
+    ─────────────────────────────────────────────────────────────────────
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <!--
+        monochrome requires compileSdk ≥ 33.
+        Safe to remove if targeting API < 33.
+    -->
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

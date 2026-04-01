@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    ic_launcher_round.xml
+    ─────────────────────────────────────────────────────────────────────
+    Round launcher icon manifest for ShareFast.
+    Place in: res/mipmap-anydpi-v26/ic_launcher_round.xml
+
+    Identical to ic_launcher.xml — Android uses this on launchers that
+    enforce circular icon shapes (e.g. Pixel launcher on Android 7.1+).
+    The adaptive-icon system handles the circle mask itself; no special
+    foreground art needed.
+    ─────────────────────────────────────────────────────────────────────
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

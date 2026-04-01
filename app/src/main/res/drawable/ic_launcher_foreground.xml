@@ -1,20 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    ic_launcher_background.xml
+    Adaptive icon background layer — indigo-to-cyan brand gradient.
+    Place in: res/drawable/ic_launcher_background.xml
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Abstract flow / transfer arcs -->
+
+    <!--
+        Gradient from center-top (#4F46E5 indigo) to bottom-right (#06B6D4 cyan).
+        Using a radial-to-linear layered approach via two overlapping rects so
+        the gradient always fills the full tile regardless of safe-zone crop.
+    -->
     <path
-        android:fillColor="#E0E7FF"
-        android:pathData="M28,54c0,-14 11,-25 25,-25v8c-9,0 -17,8 -17,17h-8z" />
+        android:fillColor="#4F46E5"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z" />
+
+    <!-- Cyan diagonal overlay — blends over the indigo base -->
     <path
-        android:fillColor="#A5B4FC"
-        android:pathData="M53,29c14,0 26,11 26,25h-8c0,-9 -8,-17 -18,-17v-8z" />
+        android:fillColor="#06B6D4"
+        android:fillAlpha="0.55"
+        android:pathData="M108,0 L108,108 L0,108 Z" />
+
+    <!-- Violet mid-tone for depth in the center zone -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,58h22l-6,10h14l-18,-22l-6,10l-6,-8z" />
-    <path
-        android:fillColor="#C4B5FD"
-        android:pathData="M58,48c6,6 6,16 0,22l-6,-6c3,-3 3,-8 0,-11l6,-5z" />
+        android:fillColor="#7C3AED"
+        android:fillAlpha="0.30"
+        android:pathData="M0,0 L108,0 L0,108 Z" />
 </vector>
